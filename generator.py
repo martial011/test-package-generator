@@ -43,8 +43,6 @@ def generate_common_names(prefix):
     }
 
 def copy_assets(destination_folder, names):
-    # CRITICAL FIX: Ensure the destination folder exists before writing any files.
-    # This prevents the FileNotFoundError pointing to the destination path.
     os.makedirs(destination_folder, exist_ok=True)
     
     try:
@@ -52,7 +50,6 @@ def copy_assets(destination_folder, names):
         shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, LANDSCAPE_IMAGE), os.path.join(destination_folder, names["landscape"]))
         shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, PORTRAIT_IMAGE), os.path.join(destination_folder, names["portrait"]))
     except FileNotFoundError as e:
-        # This block catches if the SOURCE files are missing (e.g., from source_data/media)
         print(f"FATAL ASSET ERROR: Source media file not found: {e}. Check source_data/media folder.")
         raise FileNotFoundError(f"Source media asset not found: {e}") 
 
@@ -89,6 +86,18 @@ def save_csv(provider, rows, headers):
 # =========================================================================
 
 def run_generation(mode, manual_configs=None):
+    
+    # CRITICAL FIX: DELETE OLD OUTPUT BEFORE STARTING
+    if os.path.exists(OUTPUT_DIR):
+        print(f"Cleaning previous output directory: {OUTPUT_DIR}")
+        try:
+            shutil.rmtree(OUTPUT_DIR)
+        except OSError as e:
+            # Handle permissions issues on some systems, though unlikely on Render
+            print(f"Error during directory cleanup: {e}")
+            return None, f"Failed to clean output directory: {e}"
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     # Define all available providers and products
     all_providers = list(SOURCE_CSV_PATHS.keys())
@@ -169,7 +178,7 @@ def run_generation(mode, manual_configs=None):
                 if count == 0:
                     continue
 
-                # Template Search Logic with Fallback (Fixes local and remote template issues)
+                # Template Search Logic with Fallback 
                 template_row = next(
                     (r for r in src_rows if r["Video Type"].strip().lower() == vtype.lower()),
                     None
@@ -179,7 +188,7 @@ def run_generation(mode, manual_configs=None):
                     print(f"Warning: No exact template found for {vtype} in {provider}. Falling back to first row.")
                     try:
                         template_row = src_rows[0].copy() 
-                        template_row["Video Type"] = vtype # Manually set the required Video Type
+                        template_row["Video Type"] = vtype 
                     except IndexError:
                         print(f"FATAL: Source CSV for {provider} is empty.")
                         continue
@@ -200,7 +209,6 @@ def run_generation(mode, manual_configs=None):
                         series_landscape = f"test-mops-series-16x9-{series_uid4}.jpg"
                         season_landscape = f"test-mops-season-16x9-{series_uid4}.jpg"
                         
-                        # Ensure folder exists for series assets
                         os.makedirs(folder, exist_ok=True) 
                         shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, PORTRAIT_IMAGE), os.path.join(folder, series_poster))
                         shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, LANDSCAPE_IMAGE), os.path.join(folder, series_landscape))
