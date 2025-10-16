@@ -3,12 +3,50 @@
 <head>
     <title>Generation Results</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; color: #333; }
-        h1 { color: #28a745; }
-        h2 { color: #007bff; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 30px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background-color: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #e9ecef; }
+        body { 
+            font-family: sans-serif; 
+            margin: 20px; 
+            background-color: rgb(34, 34, 34); /* Dark background */
+            color: rgb(230, 231, 231); /* Light text */
+        }
+        h1 { 
+            color: #28a745; 
+            margin-top: 20px;
+        }
+        h2 { 
+            color: #007bff; 
+            border-bottom: 1px solid #555; /* Darker border */
+            padding-bottom: 5px; 
+            margin-top: 30px; 
+        }
+        .logo {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .logo img {
+            max-width: 180px; /* Adjust size as needed */
+            height: auto;
+            background-color: white; /* Optional: background for logo if it has transparent parts */
+            padding: 8px;
+            border-radius: 5px;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 20px; 
+            background-color: #444; /* Slightly lighter dark for table background */
+            box-shadow: 0 0 10px rgba(0,0,0,0.3); 
+        }
+        th, td { 
+            border: 1px solid #555; /* Darker border for table cells */
+            padding: 10px; 
+            text-align: left; 
+            color: rgb(230, 231, 231); /* Light text in table */
+        }
+        th { 
+            background-color: #666; /* Even lighter dark for table headers */
+            color: white;
+        }
         .download-btn {
             display: inline-block; 
             padding: 15px 30px; 
@@ -20,10 +58,18 @@
             margin-bottom: 20px;
             transition: background-color 0.3s;
         }
-        .download-btn:hover { background-color: #c82333; }
+        .download-btn:hover { 
+            background-color: #c82333; 
+        }
+        a {
+            color: #007bff; /* Link color */
+        }
     </style>
 </head>
 <body>
+    <div class="logo">
+        <img src="{{ url_for('static', filename='quickplay_logo.png') }}" alt="Quickplay Logo">
+    </div>
     <h1>🎉 Generation Complete!</h1>
 
     <h2>Download Link</h2>
