@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+*.env
+
+# Output files (Crucial for keeping the repo small)
+GENERATED_PACKAGES/
+*.zip
+
+# Media files (If your source media is large, don't include it!)
+# Ensure your source media path is accessible on the host, or provide placeholder files.
+# Since your code references local C: drive paths, you MUST remove or update these.

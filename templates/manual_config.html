@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manual Configuration</title>
+    <style>
+        body { 
+            font-family: sans-serif; 
+            margin: 20px; 
+            background-color: rgb(34, 34, 34); /* Dark background */
+            color: rgb(230, 231, 231); /* Light text */
+        }
+        h1 { 
+            color: #007bff; 
+            margin-top: 20px;
+        }
+        h2 { 
+            border-bottom: 2px solid #555; /* Darker border for contrast */
+            padding-bottom: 5px; 
+            margin-top: 30px; 
+            color: #fff; /* Ensure h2 is bright */
+        }
+        .logo {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .logo img {
+            max-width: 180px; /* Adjust size as needed */
+            height: auto;
+            background-color: white; /* Optional: background for logo if it has transparent parts */
+            padding: 8px;
+            border-radius: 5px;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 20px; 
+            background-color: #444; /* Slightly lighter dark for table background */
+            box-shadow: 0 0 10px rgba(0,0,0,0.3); 
+        }
+        th, td { 
+            border: 1px solid #555; /* Darker border for table cells */
+            padding: 10px; 
+            text-align: left; 
+            color: rgb(230, 231, 231); /* Light text in table */
+        }
+        th { 
+            background-color: #666; /* Even lighter dark for table headers */
+            color: white;
+        }
+        input[type=number] { 
+            width: 70px; 
+            padding: 5px; 
+            border: 1px solid #777; 
+            border-radius: 3px; 
+            background-color: #333; /* Dark input background */
+            color: rgb(230, 231, 231); /* Light text in input */
+        }
+        .generate-btn { 
+            padding: 12px 30px; 
+            background-color: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 1.1em; 
+            margin-top: 20px; 
+            transition: background-color 0.3s; 
+        }
+        .generate-btn:hover { 
+            background-color: #218838; 
+        }
+        a {
+            color: #007bff; /* Link color */
+        }
+        .flash-message {
+            color: #dc3545; /* Red for error messages */
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">
+        <img src="{{ url_for('static', filename='quickplay_logo.png') }}" alt="Quickplay Logo">
+    </div>
+    <h1>⚙️ Manual Configuration</h1>
+    <p>Enter the number of files to generate for each content type and product. Set a count of **0** to skip generation for that type.</p>
+    
+    <form method="POST" action="{{ url_for('generate') }}">
+        <input type="hidden" name="mode" value="manual">
+        
+        {% for provider, products in providers.items() %}
+            <h2>Provider: {{ provider.capitalize() }}</h2>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Full Movie Count</th>
+                        <th>Full Episode Count</th>
+                        {% if provider == 'others' %}<th>Short Video Count (TWC only)</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                {% for product in products %}
+                    <tr>
+                        <td><strong>{{ product.upper() }}</strong></td>
+                        <td>
+                            <input type="number" name="{{ provider }}_{{ product }}_full_movie" value="0" min="0">
+                        </td>
+                        <td>
+                            <input type="number" name="{{ provider }}_{{ product }}_full_episode" value="0" min="0">
+                        </td>
+                        
+                        {% if provider == 'others' %}
+                        <td>
+                            {% if product == 'twc' %}
+                                <input type="number" name="{{ provider }}_{{ product }}_short_video" value="0" min="0">
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
+        
+        <button type="submit" class="generate-btn">🚀 Generate Package</button>
+    </form>
+    <p style="margin-top: 20px;"><a href="{{ url_for('home') }}">← Back to Mode Selection</a></p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="flash-message">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</body>
+</html>
