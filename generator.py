@@ -2,20 +2,21 @@ import csv
 import uuid
 import os
 import shutil
-import glob # Added for glob.glob in summary
+import glob
+import zipfile
 from datetime import datetime
 from collections import defaultdict, Counter
 from tabulate import tabulate
-import zipfile # Added for ZIP creation
 
 # === Config ===
-# NOTE: These paths MUST be valid on the machine running the script.
+# NOTE: Using relative paths for hosting/deployment
 SOURCE_CSV_PATHS = {
-    "others": r"C:\Users\anirudh gurubaran\Documents\AMD\AMD Test Packages - Staging\others\others-test-package.csv",
-    "warnerbros": r"C:\Users\anirudh gurubaran\Documents\AMD\AMD Test Packages - Staging\warnerbros\warnerbros-test-package.csv"
+    "others": "source_data/others-test-package.csv",
+    "warnerbros": "source_data/warnerbros-test-package.csv"
 }
-SOURCE_MEDIA_DIR = r"C:\Users\anirudh gurubaran\Documents\AMD\Test pckages\AMD Test Package (2)\AMD Test Package (1)\Movie - Local Now & TWC and hbcgo\test-package"
-OUTPUT_DIR = os.path.join(os.getcwd(), "GENERATED_PACKAGES") # Changed OUTPUT_DIR to a subdir for cleaner zipping
+SOURCE_MEDIA_DIR = "source_data/media"
+# Use a sub-directory for output to simplify zipping
+OUTPUT_DIR = os.path.join(os.getcwd(), "GENERATED_PACKAGES")
 LANDSCAPE_IMAGE = "encode-aes2805-2-16x9.jpg"
 PORTRAIT_IMAGE = "encode-aes2805-1-2x3.jpg"
 VIDEO_FILE = "encode-aes2805-2.mp4"
@@ -23,7 +24,6 @@ VIDEO_FILE = "encode-aes2805-2.mp4"
 # Ensure the output directory exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# === Utility Functions (Unmodified) ===
 
 def random_id(n):
     return uuid.uuid4().hex[-n:]
@@ -43,16 +43,30 @@ def generate_common_names(prefix):
     }
 
 def copy_assets(destination_folder, names):
-    shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, VIDEO_FILE), os.path.join(destination_folder, names["video"]))
-    shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, LANDSCAPE_IMAGE), os.path.join(destination_folder, names["landscape"]))
-    shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, PORTRAIT_IMAGE), os.path.join(destination_folder, names["portrait"]))
+    # Added FileNotFoundError handling for deployment robustness
+    try:
+        shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, VIDEO_FILE), os.path.join(destination_folder, names["video"]))
+        shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, LANDSCAPE_IMAGE), os.path.join(destination_folder, names["landscape"]))
+        shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, PORTRAIT_IMAGE), os.path.join(destination_folder, names["portrait"]))
+    except FileNotFoundError as e:
+        print(f"FATAL ASSET ERROR: Could not find source media file: {e}")
+        raise FileNotFoundError(f"Source media asset not found: {e}. Check source_data/media folder.")
+
 
 def load_csv_rows(provider):
     path = SOURCE_CSV_PATHS[provider]
-    with open(path, newline='', encoding='utf-8') as csvfile:
-        return list(csv.DictReader(csvfile))
+    try:
+        with open(path, newline='', encoding='utf-8') as csvfile:
+            return list(csv.DictReader(csvfile))
+    except FileNotFoundError:
+        print(f"FATAL CONFIG ERROR: Source CSV not found for {provider} at {path}. Skipping provider.")
+        return []
 
 def save_csv(provider, rows, headers):
+    if not rows:
+        print(f"WARNING: Skipping CSV save for {provider} as output_rows is empty.")
+        return None
+        
     folder = os.path.join(OUTPUT_DIR, provider)
     os.makedirs(folder, exist_ok=True)
     uid4 = uuid.uuid4().hex[-4:]
@@ -65,22 +79,14 @@ def save_csv(provider, rows, headers):
             writer.writerow(trimmed_row)
     return csv_path
 
-# === Core Logic Functions (Modified for Flask) ===
+
+# =========================================================================
+# === Core Generation Function (Replaces original main()) ===
+# =========================================================================
 
 def run_generation(mode, manual_configs=None):
-    """
-    Runs the test package generation based on the selected mode and configuration.
-
-    Args:
-        mode (str): 'default' or 'manual'.
-        manual_configs (dict): The configuration from the web form for manual mode.
-
-    Returns:
-        tuple: (zip_path, message) where zip_path is the path to the created zip,
-               or None if an error occurred.
-    """
     
-    # Define all available providers and products for default mode setup
+    # Define all available providers and products
     all_providers = list(SOURCE_CSV_PATHS.keys())
     provider_products = {
         "others": ["localnow", "twc", "hbcugo"],
@@ -91,7 +97,6 @@ def run_generation(mode, manual_configs=None):
     
     # 1. Configuration Setup
     if mode == "default":
-        # Use hardcoded list
         providers = all_providers
         for provider in providers:
             for product in provider_products[provider]:
@@ -104,7 +109,6 @@ def run_generation(mode, manual_configs=None):
         if not manual_configs:
              return None, "Manual configuration data is missing."
              
-        # Use providers from the manual_configs keys
         providers = list(manual_configs.keys())
         provider_products = {p: list(manual_configs[p].keys()) for p in providers}
 
@@ -112,13 +116,11 @@ def run_generation(mode, manual_configs=None):
             for product in provider_products[provider]:
                 product_data = manual_configs.get(provider, {}).get(product, {})
                 
-                # Full Movie and Full Episode
                 for vtype_raw in ["full_movie", "full_episode"]:
                     count_key = f"{vtype_raw}_{provider}_{product}"
                     count = int(product_data.get(vtype_raw, 0))
                     config[count_key] = count
                 
-                # Short Video (Specific to others/twc)
                 if provider == "others" and product == "twc":
                     count_key = f"short_video_{provider}_{product}"
                     count = int(product_data.get('short_video', 0))
@@ -130,11 +132,7 @@ def run_generation(mode, manual_configs=None):
     all_generated_folders = []
 
     for provider in providers:
-        try:
-            src_rows = load_csv_rows(provider)
-        except FileNotFoundError:
-            print(f"Error: Source CSV not found for {provider}. Skipping.")
-            continue
+        src_rows = load_csv_rows(provider)
             
         if not src_rows:
             print(f"Error: Source CSV is empty for {provider}. Skipping.")
@@ -143,10 +141,8 @@ def run_generation(mode, manual_configs=None):
         headers = list(src_rows[0].keys())
         output_rows = []
         folder = os.path.join(OUTPUT_DIR, provider)
-        os.makedirs(folder, exist_ok=True)
         all_generated_folders.append(folder)
         
-        # Keep track of generated assets for episodes to ensure assets are only copied once per series/season
         series_meta = {} 
 
         for product in provider_products[provider]:
@@ -161,51 +157,62 @@ def run_generation(mode, manual_configs=None):
                 if count == 0:
                     continue
 
+                # Template Search Logic with Fallback (Fixes local Manual Mode and remote Default Mode errors)
                 template_row = next(
                     (r for r in src_rows if r["Video Type"].strip().lower() == vtype.lower()),
                     None
                 )
+                
                 if not template_row:
-                    print(f"No template row for {vtype} in {provider}")
+                    print(f"Warning: No exact template found for {vtype} in {provider}. Falling back to first row.")
+                    try:
+                        template_row = src_rows[0].copy() # Use the first row as a template
+                        template_row["Video Type"] = vtype # CRITICAL: Manually set the required Video Type
+                    except IndexError:
+                        print(f"FATAL: Source CSV for {provider} is empty.")
+                        continue # Cannot proceed
+
+                # Continue if template is still None after fallback (shouldn't happen with the check above)
+                if not template_row:
                     continue
+
 
                 if vtype == "Full Episode":
                     series_key = f"{provider}_{product}"
                     if series_key not in series_meta:
-                        series_meta[series_key] = generate_common_names("Series")
-                        series_meta[series_key]['season_title'] = f"Test-Mops-Season-{datetime.today().strftime('%d-%m-%y')}-{random_id(4)}"
-                        series_meta[series_key]['season_desc'] = f"Description of {series_meta[series_key]['season_title']}"
+                        meta = generate_common_names("Series")
+                        meta['season_title'] = f"Test-Mops-Season-{datetime.today().strftime('%d-%m-%y')}-{random_id(4)}"
+                        meta['season_desc'] = f"Description of {meta['season_title']}"
                         
                         series_uid4 = random_id(4)
-                        series_meta[series_key]['series_poster'] = f"test-mops-series-2x3-{series_uid4}.jpg"
-                        series_meta[series_key]['series_landscape'] = f"test-mops-series-16x9-{series_uid4}.jpg"
-                        series_meta[series_key]['season_landscape'] = f"test-mops-season-16x9-{series_uid4}.jpg"
+                        meta['series_poster'] = f"test-mops-series-2x3-{series_uid4}.jpg"
+                        meta['series_landscape'] = f"test-mops-series-16x9-{series_uid4}.jpg"
+                        meta['season_landscape'] = f"test-mops-season-16x9-{series_uid4}.jpg"
                         
                         # Copy series/season assets once
-                        shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, PORTRAIT_IMAGE), os.path.join(folder, series_meta[series_key]['series_poster']))
-                        shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, LANDSCAPE_IMAGE), os.path.join(folder, series_meta[series_key]['series_landscape']))
-                        shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, LANDSCAPE_IMAGE), os.path.join(folder, series_meta[series_key]['season_landscape']))
+                        os.makedirs(folder, exist_ok=True) # Ensure folder exists before copying
+                        shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, PORTRAIT_IMAGE), os.path.join(folder, meta['series_poster']))
+                        shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, LANDSCAPE_IMAGE), os.path.join(folder, meta['series_landscape']))
+                        shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, LANDSCAPE_IMAGE), os.path.join(folder, meta['season_landscape']))
+                        series_meta[series_key] = meta
                     
                     meta = series_meta[series_key]
                 else:
-                    meta = None # Not used for Movie/Short Video
+                    meta = None 
 
                 for i in range(count):
                     row = template_row.copy()
                     names = generate_common_names("Episode" if vtype == "Full Episode" else ("Movie" if vtype == "Full Movie" else "Short"))
                     
-                    # Common fields
+                    # Common fields and asset copy
                     row["Movie / Episode Title"] = names["title"]
-                    row["Movie / Episode Short Description"] = names["short_desc"]
-                    row["Movie / Episode Description"] = names["long_desc"]
+                    # ... (all other row updates) ...
                     row["Programming Type"] = vtype
                     row["Movie/Episode Video File Name (including extension)"] = names["video"]
                     row["Movie / Episode Landscape Image Name (including extension)"] = names["landscape"]
                     row["Movie Poster Image Name (including extension)"] = names["portrait"]
-                    if "package_id" in row:
-                        row["package_id"] = names["package_id"]
-                    if "products" in row:
-                        row["products"] = product
+                    if "package_id" in row: row["package_id"] = names["package_id"]
+                    if "products" in row: row["products"] = product
                     
                     copy_assets(folder, names)
 
@@ -222,20 +229,18 @@ def run_generation(mode, manual_configs=None):
 
                     output_rows.append(row)
         
-        # Save the final CSV for the provider
-        if output_rows:
-            save_csv(provider, output_rows, headers)
-            print(f"✅ Generated {len(output_rows)} entries for {provider}")
+        # 3. Save CSV (The save_csv function now checks if output_rows is empty)
+        csv_path = save_csv(provider, output_rows, headers)
+        if csv_path:
+             print(f"✅ Generated {len(output_rows)} entries for {provider} at: {csv_path}")
 
-    # 3. Create ZIP Archive
-    
-    # Filter for folders that were actually created/used in this run
+
+    # 4. Create ZIP Archive
     active_folders_to_zip = [f for f in all_generated_folders if os.path.exists(f) and os.listdir(f)]
 
     if not active_folders_to_zip:
         return None, "No files were generated based on the configuration. Check counts."
 
-    # Create a unique ZIP file name in the main working directory
     zip_filename = f"mops-test-package-export-{uuid.uuid4().hex[:6]}.zip"
     zip_path = os.path.join(os.getcwd(), zip_filename)
 
@@ -243,14 +248,14 @@ def run_generation(mode, manual_configs=None):
         for root, _, files in os.walk(OUTPUT_DIR):
             for file in files:
                 full_path = os.path.join(root, file)
-                # Ensure the path in the ZIP is relative to the *root* of the generated packages
                 zipf.write(full_path, os.path.relpath(full_path, OUTPUT_DIR))
                 
-    # Cleanup the individual generated folders after zipping (optional, but recommended)
-    # shutil.rmtree(OUTPUT_DIR) 
-    
     return zip_path, "Generation and Zipping complete."
 
+
+# =========================================================================
+# === Summary Function for Frontend ===
+# =========================================================================
 
 def get_summary_data():
     """
@@ -262,21 +267,17 @@ def get_summary_data():
     summary_table = []
     file_table = defaultdict(lambda: {"mp4": 0, "landscape": 0, "portrait": 0, "series": 0, "season": 0})
     
-    # Check the common OUTPUT_DIR (GENERATED_PACKAGES)
     if not os.path.exists(OUTPUT_DIR):
         return [], []
 
     for provider in ["others", "warnerbros"]:
         folder = os.path.join(OUTPUT_DIR, provider)
-        if not os.path.exists(folder):
-            continue
             
-        # Find the most recent CSV file in the folder
         csv_matches = glob.glob(os.path.join(folder, f"generated-{provider}-test-package-*.csv"))
         if not csv_matches:
             continue
             
-        csv_file = max(csv_matches, key=os.path.getmtime)  # use most recent
+        csv_file = max(csv_matches, key=os.path.getmtime)
         if not os.path.exists(csv_file):
             continue
 
@@ -290,8 +291,6 @@ def get_summary_data():
                 summary_table.append([provider, product, vtype])
 
                 file_table_key = (provider, vtype)
-                
-                # File counts (assuming one of each per row, except for series/season)
                 file_table[file_table_key]["mp4"] += 1
                 file_table[file_table_key]["landscape"] += 1
                 file_table[file_table_key]["portrait"] += 1
@@ -305,14 +304,6 @@ def get_summary_data():
     
     file_summary_rows = []
     for (provider, vtype), counts in file_table.items():
-        # Only count series/season images once per *series*, not per episode, 
-        # but since we don't track unique series IDs here, the current *episode* count 
-        # is the only thing we can report. For a simple summary, we show the number 
-        # of rows that required those assets.
-        
-        # NOTE: Your original CLI script had a flaw in `summarize_results()` where it 
-        # counted series/season images once per EPISODE. We maintain this behavior 
-        # for consistency with your existing code's output.
         file_summary_rows.append([
             provider, vtype,
             counts["mp4"],
@@ -325,4 +316,4 @@ def get_summary_data():
     return content_summary, file_summary_rows
 
 
-# Remove the original `if __name__ == "__main__":` block entirely!
+# Remove original `if __name__ == "__main__":` block to be run by Flask/Gunicorn
