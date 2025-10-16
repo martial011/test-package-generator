@@ -21,7 +21,7 @@ LANDSCAPE_IMAGE = "encode-aes2805-2-16x9.jpg"
 PORTRAIT_IMAGE = "encode-aes2805-1-2x3.jpg"
 VIDEO_FILE = "encode-aes2805-2.mp4"
 
-# Ensure the output directory exists
+# Ensure the output directory exists on initial startup
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
@@ -43,13 +43,17 @@ def generate_common_names(prefix):
     }
 
 def copy_assets(destination_folder, names):
+    # CRITICAL FIX: Ensure the destination folder exists before writing any files.
+    # This prevents the FileNotFoundError pointing to the destination path.
+    os.makedirs(destination_folder, exist_ok=True)
+    
     try:
         shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, VIDEO_FILE), os.path.join(destination_folder, names["video"]))
         shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, LANDSCAPE_IMAGE), os.path.join(destination_folder, names["landscape"]))
         shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, PORTRAIT_IMAGE), os.path.join(destination_folder, names["portrait"]))
     except FileNotFoundError as e:
+        # This block catches if the SOURCE files are missing (e.g., from source_data/media)
         print(f"FATAL ASSET ERROR: Source media file not found: {e}. Check source_data/media folder.")
-        # Re-raise the error to stop the generation process cleanly
         raise FileNotFoundError(f"Source media asset not found: {e}") 
 
 
@@ -111,7 +115,7 @@ def run_generation(mode, manual_configs=None):
         if not manual_configs:
              return None, "Manual configuration data is missing."
              
-        # CRITICAL FIX: Only include providers/products chosen by the user
+        # FIX: Only include providers/products chosen by the user
         providers = list(manual_configs.keys())
         provider_products = {p: list(manual_configs[p].keys()) for p in providers}
 
@@ -141,7 +145,6 @@ def run_generation(mode, manual_configs=None):
             print(f"Error: Source CSV is empty for {provider}. Skipping.")
             continue
             
-        # Ensure we have headers from the source CSV
         try:
              headers = list(src_rows[0].keys())
         except IndexError:
@@ -166,7 +169,7 @@ def run_generation(mode, manual_configs=None):
                 if count == 0:
                     continue
 
-                # Template Search Logic with Fallback (Fixes "requires count of 2" and remote failures)
+                # Template Search Logic with Fallback (Fixes local and remote template issues)
                 template_row = next(
                     (r for r in src_rows if r["Video Type"].strip().lower() == vtype.lower()),
                     None
@@ -181,7 +184,7 @@ def run_generation(mode, manual_configs=None):
                         print(f"FATAL: Source CSV for {provider} is empty.")
                         continue
 
-                if not template_row: # Final check after fallback
+                if not template_row:
                     continue
 
 
@@ -189,7 +192,7 @@ def run_generation(mode, manual_configs=None):
                     series_key = f"{provider}_{product}"
                     if series_key not in series_meta:
                         meta = generate_common_names("Series")
-                        # ... (Series metadata generation and asset copy for series/season) ...
+                        
                         season_title = f"Test-Mops-Season-{datetime.today().strftime('%d-%m-%y')}-{random_id(4)}"
                         season_desc = f"Description of {season_title}"
                         series_uid4 = random_id(4)
@@ -197,7 +200,8 @@ def run_generation(mode, manual_configs=None):
                         series_landscape = f"test-mops-series-16x9-{series_uid4}.jpg"
                         season_landscape = f"test-mops-season-16x9-{series_uid4}.jpg"
                         
-                        os.makedirs(folder, exist_ok=True)
+                        # Ensure folder exists for series assets
+                        os.makedirs(folder, exist_ok=True) 
                         shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, PORTRAIT_IMAGE), os.path.join(folder, series_poster))
                         shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, LANDSCAPE_IMAGE), os.path.join(folder, series_landscape))
                         shutil.copyfile(os.path.join(SOURCE_MEDIA_DIR, LANDSCAPE_IMAGE), os.path.join(folder, season_landscape))
@@ -212,7 +216,7 @@ def run_generation(mode, manual_configs=None):
                     row = template_row.copy()
                     names = generate_common_names("Episode" if vtype == "Full Episode" else ("Movie" if vtype == "Full Movie" else "Short"))
                     
-                    # Row updates based on vtype (Full Movie/Short Video logic is here)
+                    # Row updates based on vtype
                     row["Movie / Episode Title"] = names["title"]
                     row["Movie / Episode Short Description"] = names["short_desc"]
                     row["Movie / Episode Description"] = names["long_desc"]
