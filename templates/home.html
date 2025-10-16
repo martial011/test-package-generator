@@ -3,56 +3,15 @@
 <head>
     <title>Test Package Generator</title>
     <style>
-        body { 
-            font-family: sans-serif; 
-            text-align: center; 
-            margin-top: 50px; 
-            background-color: rgb(34, 34, 34); /* Dark background */
-            color: rgb(230, 231, 231); /* Light text */
-        }
-        h1 { 
-            color: #007bff; /* Keep a vibrant color for headings */
-            margin-top: 20px;
-        }
-        .logo {
-            margin-bottom: 30px;
-        }
-        .logo img {
-            max-width: 200px; /* Adjust size as needed */
-            height: auto;
-            background-color: white; /* Optional: background for logo if it has transparent parts */
-            padding: 10px;
-            border-radius: 5px;
-        }
-        button { 
-            padding: 12px 25px; 
-            margin: 15px; 
-            cursor: pointer; 
-            border: none; 
-            border-radius: 5px; 
-            font-size: 1.1em; 
-            transition: background-color 0.3s; 
-            color: rgb(34, 34, 34); /* Ensure button text is dark on light button */
-        }
-        button[value="default"] { 
-            background-color: #28a745; /* Green */
-        }
-        button[value="manual"] { 
-            background-color: #ffc107; /* Yellow */
-        }
-        button:hover { 
-            opacity: 0.9; 
-        }
-        .flash-message {
-            color: #dc3545; /* Red for error messages */
-            margin-top: 20px;
-        }
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; background-color: #f4f4f9; color: #333; }
+        h1 { color: #007bff; }
+        button { padding: 12px 25px; margin: 15px; cursor: pointer; border: none; border-radius: 5px; font-size: 1.1em; transition: background-color 0.3s; }
+        button[value="default"] { background-color: #28a745; color: white; }
+        button[value="manual"] { background-color: #ffc107; color: #333; }
+        button:hover { opacity: 0.9; }
     </style>
 </head>
 <body>
-    <div class="logo">
-        <img src="{{ url_for('static', filename='quickplay_logo.png') }}" alt="Quickplay Logo">
-    </div>
     <h1>🎬 Test Package Generator</h1>
     <p>Select the generation mode:</p>
     
@@ -64,7 +23,7 @@
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-            <div class="flash-message">{{ message }}</div>
+            <div style="color: red; margin-top: 20px;">{{ message }}</div>
             {% endfor %}
         {% endif %}
     {% endwith %}
