@@ -11,10 +11,10 @@ import zipfile # Added for ZIP creation
 # === Config ===
 # NOTE: These paths MUST be valid on the machine running the script.
 SOURCE_CSV_PATHS = {
-    "others": r"C:\Users\anirudh gurubaran\Documents\AMD\AMD Test Packages - Staging\others\others-test-package.csv",
-    "warnerbros": r"C:\Users\anirudh gurubaran\Documents\AMD\AMD Test Packages - Staging\warnerbros\warnerbros-test-package.csv"
+    "others": "source_data/others-test-package.csv",
+    "warnerbros": "source_data/warnerbros-test-package.csv"
 }
-SOURCE_MEDIA_DIR = r"C:\Users\anirudh gurubaran\Documents\AMD\Test pckages\AMD Test Package (2)\AMD Test Package (1)\Movie - Local Now & TWC and hbcgo\test-package"
+SOURCE_MEDIA_DIR = "source_data/media"
 OUTPUT_DIR = os.path.join(os.getcwd(), "GENERATED_PACKAGES") # Changed OUTPUT_DIR to a subdir for cleaner zipping
 LANDSCAPE_IMAGE = "encode-aes2805-2-16x9.jpg"
 PORTRAIT_IMAGE = "encode-aes2805-1-2x3.jpg"

@@ -1,0 +1,3 @@
+Flask
+gunicorn  # A production web server required by Render
+tabulate
